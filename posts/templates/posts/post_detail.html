@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+
+<style>
+  .media-wrap{
+    position: relative;
+    background:#000;
+    border-radius: 10px;
+    overflow:hidden;
+  }
+  .tap-hint{
+    position:absolute;
+    left:10px;
+    bottom:10px;
+    z-index:5;
+    background: rgba(0,0,0,.45);
+    color:#fff;
+    padding:4px 8px;
+    border-radius:999px;
+    font-size:12px;
+    user-select:none;
+    display:none;
+  }
+</style>
+
+<div class="row justify-content-center">
+  <div class="col-md-8 col-lg-6">
+
+    <!-- ✅ Back -->
+    <div class="mb-2">
+      <button class="btn btn-sm btn-outline-secondary" onclick="history.back()">← Back</button>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="d-flex align-items-center gap-2">
+            {% if post.author.profile.image %}
+              <img src="{{ post.author.profile.image.url }}" class="rounded-circle" width="34" height="34" style="object-fit:cover;">
+            {% else %}
+              <img src="{% static 'images/default.png' %}" class="rounded-circle" width="34" height="34" style="object-fit:cover;">
+            {% endif %}
+
+            <a href="{% url 'profile' post.author.username %}" class="text-decoration-none text-dark">
+              <strong>{{ post.author.username }}</strong>
+            </a>
+
+            {% if post.is_reel %}
+              <span class="badge bg-dark">Reel</span>
+            {% endif %}
+          </div>
+
+          {% if post.author == user %}
+            <form action="{% url 'delete_post' post.id %}" method="POST" class="m-0">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-danger"
+                      onclick="return confirm('Delete this post?')">
+                🗑 Delete
+              </button>
+            </form>
+          {% endif %}
+        </div>
+
+        <!-- Media -->
+        {% if post.video %}
+          <div class="media-wrap mb-2">
+            <video id="postVideo"
+                   class="w-100 d-block mx-auto"
+                   controls
+                   playsinline
+                   preload="metadata"
+                   style="max-height:500px; object-fit:cover; background:#000;">
+              <source src="{{ post.video.url }}">
+              Your browser does not support the video tag.
+            </video>
+            <div class="tap-hint" id="tapHint">Tap video to Play/Pause</div>
+          </div>
+        {% elif post.image %}
+          <img src="{{ post.image.url }}"
+               class="img-fluid rounded mb-2 d-block mx-auto"
+               style="max-height:500px; object-fit:contain; background:#f8f9fa;">
+        {% endif %}
+
+        {% if post.content %}
+          <p class="mb-2">{{ post.content }}</p>
+        {% endif %}
+
+        <div class="small text-muted mb-3">
+          {{ post.created|date:"M d, Y • H:i" }}
+        </div>
+
+        <!-- Actions -->
+        <div class="d-flex gap-2 align-items-center">
+          <form action="{% url 'like_post' post.id %}" method="POST" class="m-0">
+            {% csrf_token %}
+            {% if user in post.likes.all %}
+              <button class="btn btn-sm btn-danger">❤️ {{ post.total_likes }}</button>
+            {% else %}
+              <button class="btn btn-sm btn-outline-danger">🤍 {{ post.total_likes }}</button>
+            {% endif %}
+          </form>
+
+          <a href="{% url 'share_choose_user' post.id %}" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-send"></i>
+          </a>
+
+          <button class="btn btn-sm btn-outline-secondary" type="button"
+                  onclick="copyPostLink('{{ request.scheme }}://{{ request.get_host }}{% url 'post_detail' post.id %}')"
+                  title="Copy link">
+            <i class="bi bi-link-45deg"></i>
+          </button>
+
+          <span class="ms-auto small text-muted">🔁 {{ post.share_count }} shares</span>
+        </div>
+
+        <hr>
+
+        <!-- Comment form -->
+        <form action="{% url 'add_comment' post.id %}" method="POST" class="mb-2">
+          {% csrf_token %}
+          <div class="input-group">
+            <input type="text" name="comment" class="form-control form-control-sm" placeholder="Add a comment..." required>
+            <button class="btn btn-primary btn-sm">Post</button>
+          </div>
+        </form>
+
+        <!-- Comments -->
+        <div>
+          {% for comment in post.comments.all %}
+            <div class="small mb-1">
+              <a href="{% url 'profile' comment.user.username %}" class="text-decoration-none">
+                <b>{{ comment.user.username }}</b>
+              </a>
+              : {{ comment.text }}
+            </div>
+          {% empty %}
+            <div class="small text-muted">No comments yet</div>
+          {% endfor %}
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function copyPostLink(link) {
+  navigator.clipboard.writeText(link).then(() => alert("Link copied ✅"));
+}
+</script>
+
+<script>
+/* ✅ Video: autoplay when visible + tap to play/pause + sound memory */
+(function(){
+  const v = document.getElementById("postVideo");
+  if(!v) return;
+
+  const tapHint = document.getElementById("tapHint");
+
+  // sound memory
+  const SOUND_KEY = "reels_sound_on"; // same key as reels page
+  function isSoundOn(){ return localStorage.getItem(SOUND_KEY) === "1"; }
+  function setSound(on){ localStorage.setItem(SOUND_KEY, on ? "1" : "0"); }
+
+  // apply saved sound state on load
+  v.muted = !isSoundOn();
+
+  // remember when user changes mute
+  v.addEventListener("volumechange", ()=>{
+    setSound(!v.muted);
+  });
+
+  // tap/click video area toggles play/pause (but not when clicking controls)
+  v.addEventListener("click", (e)=>{
+    // if user clicked on native controls area, ignore (browser handles)
+    // (best effort)
+    if (e.offsetY > v.clientHeight - 60) return;
+
+    if(v.paused) v.play().catch(()=>{});
+    else v.pause();
+  });
+
+  // show small hint for reel-like UX
+  tapHint.style.display = "inline-block";
+  setTimeout(()=> tapHint.style.display="none", 2500);
+
+  // autoplay only when visible
+  const io = new IntersectionObserver((entries)=>{
+    const entry = entries[0];
+    if(!entry) return;
+    if(entry.isIntersecting && entry.intersectionRatio >= 0.6){
+      v.play().catch(()=>{});
+    }else{
+      v.pause();
+    }
+  }, { threshold: [0,0.25,0.5,0.6,1] });
+
+  io.observe(v);
+
+})();
+</script>
+
+{% endblock %}

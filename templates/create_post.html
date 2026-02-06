@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h3 class="mb-3">Create Post</h3>
+
+
+<form method="POST" enctype="multipart/form-data" class="card p-3">
+  {% csrf_token %}
+
+  <div class="mb-2">
+    <label class="form-label">Caption</label>
+    {{ form.content }}
+  </div>
+
+  <div class="mb-2">
+    <label class="form-label">Image (optional)</label>
+    {{ form.image }}
+  </div>
+
+  <div class="mb-2">
+    <label class="form-label">Video (for Reel)</label>
+    {{ form.video }}
+    <div class="small text-muted">MP4/WebM recommended</div>
+  </div>
+
+  <div class="form-check mb-3">
+    {{ form.is_reel }}
+    <label class="form-check-label">This is a Reel</label>
+  </div>
+
+  {% if form.errors %}
+    <div class="alert alert-danger">
+      {{ form.errors }}
+    </div>
+  {% endif %}
+
+  <button class="btn btn-primary">Post</button>
+</form>
+
+{% endblock %}

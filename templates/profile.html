@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="text-center">
+
+    <!-- Profile Image -->
+    {% if profile_user.profile.image %}
+        <img src="{{ profile_user.profile.image.url }}"
+             class="rounded-circle"
+             width="120" height="120">
+    {% else %}
+        <img src="https://via.placeholder.com/120"
+             class="rounded-circle">
+    {% endif %}
+
+    <!-- Username & Bio -->
+    <h3 class="mt-2">{{ profile_user.username }}</h3>
+    <p class="text-muted">
+        {{ profile_user.profile.bio|default:"No bio yet" }}
+    </p>
+
+    <!-- Followers / Following -->
+    <div class="d-flex justify-content-center gap-4 my-3">
+        <div>
+            <strong>
+                <a href="#" data-bs-toggle="modal" data-bs-target="#followersModal"
+                   class="text-decoration-none text-dark">
+                    <span id="followersCount">{{ followers_count }}</span>
+                </a>
+            </strong><br>
+            <small class="text-muted">Followers</small>
+        </div>
+
+        <div>
+            <strong>
+                <a href="#" data-bs-toggle="modal" data-bs-target="#followingModal"
+                   class="text-decoration-none text-dark">
+                    <span id="followingCount">{{ following_count }}</span>
+                </a>
+            </strong><br>
+            <small class="text-muted">Following</small>
+        </div>
+    </div>
+    {% if request.user == profile_user %}
+        <div class="mb-3 d-flex gap-2">
+            <a href="{% url 'edit_profile' %}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-pencil-square"></i> Edit Profile
+            </a>
+        </div>
+        {% endif %}
+
+
+    <!-- Follow/Unfollow Button -->
+    {% if user.is_authenticated and user != profile_user %}
+        <button id="followBtn"
+                onclick="toggleFollow('{{ profile_user.username }}')"
+                class="btn btn-sm {% if is_following %}btn-danger{% else %}btn-primary{% endif %}">
+            {% if is_following %}Unfollow{% else %}Follow{% endif %}
+        </button>
+    {% endif %}
+
+</div>
+
+<hr>
+
+<!-- User Posts -->
+<h4 class="mb-3">Posts</h4>
+{% if reels %}
+<h4 class="mt-4">Reels</h4>
+<div class="d-flex gap-2 overflow-auto pb-2">
+  {% for r in reels %}
+    <a href="{% url 'reels' %}" class="text-decoration-none">
+      <div class="card" style="min-width:160px;">
+        <video src="{{ r.video.url }}" muted playsinline preload="metadata"
+               style="height:200px; width:160px; object-fit:cover; background:#000;"></video>
+      </div>
+    </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+
+{% for post in posts %}
+<h4 class="mt-4">Posts</h4>
+
+{% for post in posts %}
+  <div class="card mb-3 p-2">
+
+    {% if post.video %}
+      <video class="w-100" controls playsinline preload="metadata"
+             style="max-height:450px; object-fit:contain; background:#000;">
+        <source src="{{ post.video.url }}">
+      </video>
+    {% elif post.image %}
+      <img src="{{ post.image.url }}" class="img-fluid"
+           style="max-height:450px; object-fit:contain; background:#f8f9fa;">
+    {% endif %}
+
+    <div class="d-flex justify-content-between align-items-center mt-2">
+      <div>{{ post.content }}</div>
+
+      {% if request.user == post.author %}
+        <form method="POST" action="{% url 'delete_post' post.id %}">
+          {% csrf_token %}
+          <button class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      {% endif %}
+    </div>
+
+  </div>
+{% empty %}
+  <p class="text-muted">No posts yet</p>
+{% endfor %}
+
+    <div class="post-card mb-3">
+        {% if post.image %}
+            <img src="{{ post.image.url }}" class="img-fluid mb-2 rounded">
+        {% endif %}
+        <p>{{ post.content }}</p>
+    </div>
+    {% if request.user == profile_user %}
+    <form action="{% url 'delete_post' post.id %}" method="POST" class="d-inline">
+      {% csrf_token %}
+      <button class="btn btn-sm btn-outline-danger"
+              onclick="return confirm('Delete this post?')">
+        <i class="bi bi-trash"></i> Delete
+      </button>
+    </form>
+    {% endif %}
+{% empty %}
+    <p class="text-muted">No posts yet</p>
+{% endfor %}
+
+
+<!-- ✅ Followers Modal -->
+<div class="modal fade" id="followersModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Followers</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body" style="max-height:300px; overflow-y:auto;">
+
+        {% for u in followers %}
+          <div class="d-flex align-items-center mb-2">
+            {% if u.profile.image %}
+              <img src="{{ u.profile.image.url }}"
+                   class="rounded-circle me-2"
+                   width="40" height="40">
+            {% else %}
+              <img src="https://via.placeholder.com/40"
+                   class="rounded-circle me-2">
+            {% endif %}
+
+            <a href="{% url 'profile' u.username %}"
+               class="text-decoration-none">
+              {{ u.username }}
+            </a>
+          </div>
+        {% empty %}
+          <p class="text-muted text-center">No followers yet</p>
+        {% endfor %}
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ✅ Following Modal -->
+<div class="modal fade" id="followingModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Following</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body" style="max-height:300px; overflow-y:auto;">
+
+        {% for u in following %}
+          <div class="d-flex align-items-center mb-2">
+            {% if u.profile.image %}
+              <img src="{{ u.profile.image.url }}"
+                   class="rounded-circle me-2"
+                   width="40" height="40">
+            {% else %}
+              <img src="https://via.placeholder.com/40"
+                   class="rounded-circle me-2">
+            {% endif %}
+
+            <a href="{% url 'profile' u.username %}"
+               class="text-decoration-none">
+              {{ u.username }}
+            </a>
+          </div>
+        {% empty %}
+          <p class="text-muted text-center">No following yet</p>
+        {% endfor %}
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ✅ AJAX Follow/Unfollow -->
+<script>
+function toggleFollow(username) {
+    fetch(`/users/${username}/toggle-follow/`)
+        .then(res => res.json())
+        .then(data => {
+            const btn = document.getElementById("followBtn");
+            const followersCount = document.getElementById("followersCount");
+
+            if (data.is_following) {
+                btn.innerText = "Unfollow";
+                btn.classList.remove("btn-primary");
+                btn.classList.add("btn-danger");
+            } else {
+                btn.innerText = "Follow";
+                btn.classList.remove("btn-danger");
+                btn.classList.add("btn-primary");
+            }
+
+            followersCount.innerText = data.followers_count;
+        });
+}
+</script>
+
+{% endblock %}
